@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The relaunched instance no longer inherits the old process's proxy environment. `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` and `NODE_USE_ENV_PROXY` are cleared alongside `ELECTRON_RUN_AS_NODE` and `DSH_DESKTOP_NODE_EXECUTABLE`. A plugin that installs a loopback relay writes `HTTP_PROXY=http://127.0.0.1:<port>` once and keeps that port for its own lifetime, so the inherited value pointed at a port the new instance never listens on; because DSH's http-proxy layer prefers inherited env over plugin-supplied policy, every child process kept dialling the dead port and `pnpm` failed with `ECONNREFUSED` through three retry rounds. Launching the app from Explorer instead was unaffected, which is what isolated the cause to the relaunch path.
+
 ## [0.1.17] - 2026-10-21
 
 ### Changed
