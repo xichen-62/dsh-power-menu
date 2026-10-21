@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-10-21
+
+### Fixed
+
+- The orphan sweep no longer ends the Host's other children. Those are whatever the user (or an agent) started from DSH's own terminal — a second `dsh web` instance, a dev server, a build — and killing them on shutdown/restart is destructive and surprising. Only the app's own processes are cleaned now: the Electron main's children that share its image name. Set `DSH_POWER_MENU_KILL_HOST_CHILDREN=1` to restore the previous behaviour.
+
+### Added
+
+- Restart reuses the argv the current instance was started with, read per DSH home from `<DSH_HOME>\power-menu-relaunch-args.json` (or `<home>/.dsh/dsh-power-menu/relaunch-args.json` when `DSH_HOME` is unset). A home launched with `--user-data-dir=<home>\userdata` keeps that switch instead of silently falling back to the default Electron profile; two isolated homes no longer share one.
 ## [0.1.17] - 2026-10-21
 
 ### Changed

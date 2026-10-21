@@ -159,6 +159,8 @@ GET  /api/dsh-power-menu/health
 - 三个接口只接受回环地址（`127.0.0.1` / `::1`），校验 `Host` 必须是本机，拒绝 `sec-fetch-site: cross-site`，带 `Origin` 时必须与本机同源。
 - 没有鉴权令牌的第三方网页无法跨站触发关机/重启。
 - 只支持桌面版；`dsh web` 下接口返回 409，不会去杀别的进程。
+- 关机/重启时只清理**本应用自己的进程**（Electron 主进程的渲染/GPU/工具子进程）。宿主（`dsh` host）在 DSH 终端里被启动的其它子进程——第二个 `dsh web` 实例、dev server、构建任务——**默认不碰**；需要旧行为时设 `DSH_POWER_MENU_KILL_HOST_CHILDREN=1`。
+- 重启会沿用当前实例的启动参数（按 home 读取 `<DSH_HOME>\power-menu-relaunch-args.json`），所以用 `--user-data-dir` 启动的隔离 home 不会在重启后掉回默认 Electron profile。
 - 不收集任何数据，不联网，不写注册表；日志只写在本地 `%USERPROFILE%\.dsh\dsh-power-menu\`。
 
 ## 兼容性
