@@ -23,7 +23,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Github -WritePath
 #      坚持用 github: spec：没有 git 时先下载便携版 git（约 38 MB）；
 #      -WritePath 才会把它写进用户 PATH（默认只对本次安装生效）
-#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -TgzPath .\dsh-power-menu-0.1.17.tgz
+#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -TgzPath .\dsh-power-menu-0.1.21.tgz
 #      完全离线：手动指定本地 tgz
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Sha256 <hash>
 #      手动指定安装包 SHA-256；默认会尝试 Release 的 SHA256SUMS.txt
@@ -41,7 +41,7 @@ param(
   [switch]$WritePath,
   [string]$TgzPath = '',
   [string]$Sha256 = '',
-  [string]$Version = '0.1.17'
+  [string]$Version = '0.1.21'
 )
 
 $ErrorActionPreference = 'Stop'

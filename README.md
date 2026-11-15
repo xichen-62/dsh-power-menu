@@ -17,8 +17,9 @@ DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜�
 - **右上角电源按钮**：位于会话标题栏图标行最右侧，顺序为「布局 / 侧栏 / 电源」。
 - **空会话也显示**：欢迎页和对话内使用同一个挂载位置，透明无底色，不会破坏主题，也不会出现两个按钮。
 - **Windows 电源菜单风格**：白色圆角卡片、悬浮阴影、左侧线性图标 + 右侧文本，只有两项，不塞多余入口。
-- **关闭DSH**：结束整个 DeepSeek Harness 桌面应用（Electron 主进程 + Host），不重新启动。
-- **重启DSH**：结束整个应用，等旧端口释放后用原可执行文件重新拉起，窗口自动回来。
+- **关闭DSH**：让整个桌面应用走它自己的退出链（`before-quit` → Host shutdown），Cookie / LocalStorage 正常落盘，不重新启动。
+- **重启DSH**：同样先优雅退出，等旧端口释放、按 exe 扫掉残留进程后再用原可执行文件拉起，窗口自动回来。
+- **有任务才确认**：点之前先问一次 `/tasks`。有会话正在生成、有排队消息或有后台任务在跑时，弹出卡片列出会被打断的会话与任务，确认才动手；空闲时直接执行，不多问。
 - **键盘可用**：`↑` / `↓` / `Home` / `End` 在两项间移动，`Enter` / 空格执行，`Esc` 关闭，点菜单外部也能关。
 - **执行反馈**：点击后整页盖一层半透明遮罩，显示「正在关闭DSH…」/「正在重启DSH…」。
 - **纯本地**：没有外部依赖、没有遥测；接口只监听本机回环地址，并做同源校验。
@@ -43,7 +44,7 @@ GitHub 直连慢或不通时，改用镜像：
 powershell -ExecutionPolicy Bypass -File .\install.ps1 -Mirror
 ```
 
-> **机器上没有 git 也能装**：`install.ps1` 会先检查 `git`；没有就自动从 GitHub Release 下载 `dsh-power-menu-0.1.17.tgz`，再用本地文件安装，全程不调用 git（这正是 `ERR_PNPM_GIT_RESOLVE_FAILED` 的解法）。直连下不动会自动改走 gh-proxy 镜像；也可以用 `-TgzPath` 指定已经拷到本机的安装包，完全离线安装。
+> **机器上没有 git 也能装**：`install.ps1` 会先检查 `git`；没有就自动从 GitHub Release 下载 `dsh-power-menu-0.1.21.tgz`，再用本地文件安装，全程不调用 git（这正是 `ERR_PNPM_GIT_RESOLVE_FAILED` 的解法）。直连下不动会自动改走 gh-proxy 镜像；也可以用 `-TgzPath` 指定已经拷到本机的安装包，完全离线安装。
 >
 > 脚本默认**不改用户 PATH**；需要让插件管理器以后也能解析便携 git 时，加 `-Github -WritePath`。下载 tgz 会优先用 Release 的 `SHA256SUMS.txt` 校验，离线包可用 `-Sha256 <hash>` 手动校验。
 
@@ -111,7 +112,7 @@ New-Item -ItemType Junction `
 | 关闭DSH | 结束整个桌面应用，不重新启动 | 是 |
 | 重启DSH | 结束应用 → 等端口释放 → 重新拉起 | 否，窗口自动回来 |
 
-> **注意**：点击即执行，没有二次确认。两个动作都会中断正在生成的回答、运行中的工具和后台任务。请在点之前保存手头的事情。
+> **注意**：空闲时点击即执行；只要有会话正在生成、有排队消息或有后台任务在跑，就会先弹出确认卡片，把要被打断的会话、任务和已运行时长列出来，确认后才动手。无论哪种情况，两个动作都会中断正在进行的工作，请在点之前保存手头的事情。
 
 ## 工作原理
 
@@ -123,36 +124,43 @@ Electron 主进程
     └── 本插件
 ```
 
-插件跑在 Host 里，不能直接调用 Electron 的 `app.quit()` / `app.relaunch()`。所以 Host 只负责“交接”，真正的进程切换交给一个分离的 helper：
+插件跑在 Host 里，不能直接调用 Electron 的 `app.quit()` / `app.relaunch()`，桌面版也没有给插件任何协作退出的 IPC。所以 Host 只负责“交接”，真正的进程切换交给一个分离的 helper；helper 也不再硬杀，而是先请主进程走它自己的退出链：
 
 ```mermaid
 flowchart LR
-  UI[电源菜单] -->|POST| Host[Host 插件]
+  UI[电源菜单] -->|先问 GET /tasks| Host[Host 插件]
+  Host -.->|有任务在跑| Ask[确认卡片] -.-> Host
   Host -->|写 handoff + spawn| Helper[detached helper]
-  Helper -->|taskkill /PID main /F<br/>不带 /T| Main[Electron 主进程]
-  Main -.->|IPC 断开| Host
-  Host -->|application.shutdown| Disk[(会话日志落盘)]
-  Helper -->|等端口释放 + 重新拉起| NewMain[新的 Electron 主进程]
+  Helper -->|WM_ENDSESSION + WM_CLOSE| Main[Electron 主进程]
+  Main -->|finishQuit| Disk[(Cookie / LocalStorage 落盘)]
+  Main -.->|backend.close → host.stop| Host
+  Host -->|application.shutdown| Log[(会话日志落盘)]
+  Helper -->|等端口释放 + 清残留 + 重新拉起| NewMain[新的 Electron 主进程]
 ```
 
 具体步骤：
 
-1. Host 把交接信息写到 `%USERPROFILE%\.dsh\dsh-power-menu\`，用 `process.execPath` + `ELECTRON_RUN_AS_NODE=1` 启动 `lib/helper.cjs`。
-2. helper 等 1.2 秒，让 HTTP 应答先到浏览器。
-3. helper 执行 `taskkill /PID <主进程> /F`，**刻意不带 `/T`**：只结束 Electron 主进程，让 Host 子进程有机会收到 IPC 断开。
-4. Host 检测到断开后走自己的 `application.shutdown`，尽量把会话日志正常落盘。
-5. 重启模式下，helper 等旧监听端口释放，清掉 `ELECTRON_RUN_AS_NODE` / `DSH_DESKTOP_NODE_EXECUTABLE`，用原可执行文件重新拉起，并确认新进程存活；失败会重试，仍失败就弹窗提示手动打开。
-6. 关闭模式下不拉起，等 Host 自己退出。
+1. 点按钮前，前端先请求 `/tasks`。有任务在跑就先弹确认卡片，确认后才发 POST。
+2. Host 把交接信息写到 `%USERPROFILE%\.dsh\dsh-power-menu\`，用 `process.execPath` + `ELECTRON_RUN_AS_NODE=1` 启动 `lib/helper.cjs`。
+3. helper 等 1.2 秒，让 HTTP 应答先到浏览器。
+4. helper 定位主窗口（`Chrome_WidgetWin_1`，属主是主进程），先 `PostMessage(WM_ENDSESSION, wParam=1)`，再 `PostMessage(WM_CLOSE)`。桌面壳收到后置 `sessionEnding = true`：窗口关闭不再被拦截，`before-quit` 跳过任务确认，直接跑完 `finishQuit → stopOperationReports → backend.close() → host.stop() → app.quit()`，Cookie 和 LocalStorage 正常落盘。
+5. Host 收到 `shutdown` 后走自己的 `application.shutdown`，把会话日志正常落盘；Host 自身还有 5 秒退出兜底。
+6. 窗口 15 秒还没退（找不到窗口、消息被拒或壳版本变了）才回落到 `taskkill /PID <主进程> /F`，**刻意不带 `/T`**。
+7. 重启模式下，helper 等旧监听端口释放，再按 `ExecutablePath` 全量枚举同一 exe 的残留进程（三轮重试 + 复查 sweep，排除自己和宿主），确认干净后用原可执行文件重新拉起，并确认新进程有真实窗口；失败重试三次，仍失败弹窗提示手动打开。
+8. 关闭模式下不拉起，等 Host 自己退出。
 
 ### 接口
 
-Host 半注册三个仅限本机回环的接口：
+Host 半注册四个仅限本机回环的接口：
 
 ```text
 POST /api/dsh-power-menu/shutdown
 POST /api/dsh-power-menu/restart
 GET  /api/dsh-power-menu/health
+GET  /api/dsh-power-menu/tasks
 ```
+
+`/tasks` 返回当前会被打断的工作：每个活动会话的标题、是否正在生成、排队消息数，以及它名下所有 `running` / `stopping` 的后台任务（含 label、进度、开始时间）；没有归属的活动任务单独列在 `ownerless` 下。空闲时 `active` 为 `false`。
 
 ## 安全
 
@@ -163,8 +171,8 @@ GET  /api/dsh-power-menu/health
 
 ## 兼容性
 
-- **系统**：Windows 10 / 11。插件依赖 `taskkill` 和 Electron 桌面进程树，其他系统未实现。
-- **DSH**：在 **DSH Desktop 0.2.1-rc.2** 上实测通过（2026-10-18）。其他 0.2.x 版本可能可用，但未逐一验证。
+- **系统**：Windows 10 / 11。优雅退出这一段依赖 Windows 的窗口消息（`WM_ENDSESSION` / `WM_CLOSE`）和 `taskkill` 兜底；其他系统未实现。
+- **DSH**：在 **DSH Desktop 0.2.2-rc.3** 上实测通过（2026-11-15），关闭 2.9 秒、重启 9.6 秒，全程没有 `taskkill`。0.2.1 的旧行为（强杀主进程）也仍然可用，但会退回硬退出的路径。
 - **Node**：跟随 DSH 自带的 Node（22+），无需单独安装。
 
 ## 开发
@@ -212,7 +220,7 @@ dsh-power-menu/
 DSH 的 `conversation.session.header.corner` 是单占用槽，已经被侧栏开关占用；`conversation.session.header.utilities` 会排在侧栏左侧；`sidebar.footer.action` 在左下角。要在不修改 DSH 的前提下保持右上角，只能把按钮挂进 `headerCorner` 的 DOM。代价是上游改头部结构时可能失效；插件用 `MutationObserver` 跟随，不再 500ms 轮询。
 
 **关闭/重启会跳过 profile 收尾吗？**
-会有一点：插件只结束 Electron 主进程，Host 会走 `application.shutdown`，但主进程的 `before-quit` 可能被跳过，Chromium 的 Cookie / Local Storage 不保证落盘。0.1.15 起会在 Host 退出后定向清理非 Host 孤儿进程（不再留 GPU / 渲染器 / 插件后台），但追求最干净的退出请用托盘「退出」。真正的 `app.quit()` 需要 DSH 提供协作退出 IPC，插件单方面做不到。
+0.1.19 起不再硬杀了。helper 会给主窗口发 `WM_ENDSESSION` + `WM_CLOSE`，让桌面壳自己走完 `before-quit → finishQuit → backend.close() → host.stop() → app.quit()`，Cookie / LocalStorage 正常落盘，Host 也自己 flush 会话日志。剩下的是插件自己 spawn 的子进程（computer-use、上下文插件、子 agent 之类）——它们不归 DSH 的关停流程管，主进程退完还可能留着，所以重启前会按 `ExecutablePath` 把同一 exe 的进程全量枚举一遍兜底。实测关闭 2.9 秒、重启 9.6 秒，全程没有强杀；只有兜底那一步会用到 `taskkill`，日志里会明确写出来。
 
 **装完点按钮报 `HTTP 404`？**
 说明宿主半没加载：插件只在 `dependencies` 里，不在 `dsh.profile.bundles` 里。运行仓库里的 `enable.ps1`，或手动把 `dsh-power-menu` 加进 profile 的 `dsh.profile.bundles`，再重启 DSH。0.1.9 起不再依赖 `postinstall`——pnpm 11 默认会拦截依赖的生命周期脚本，装不上钩子。
@@ -237,7 +245,7 @@ cmd /c rmdir "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-power-menu
 - 或者直接装 tarball（pnpm 走 HTTP 下载后本地解包）：
 
   ```powershell
-  dsh plugin --profile desktop add https://github.com/xichen-62/dsh-power-menu/releases/latest/download/dsh-power-menu-0.1.17.tgz
+  dsh plugin --profile desktop add https://github.com/xichen-62/dsh-power-menu/releases/latest/download/dsh-power-menu-0.1.21.tgz
   ```
 
   GitHub 慢的话，在前面加 `https://gh-proxy.com/` 走镜像；也可以把 tgz 下载到本机后用 `dsh plugin --profile desktop add file:<路径>` 安装。
