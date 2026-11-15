@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.20] - 2026-11-15
+
+### Fixed
+
+- The graceful request was reported as failed whenever `WM_CLOSE` could not be posted, which is exactly what
+  happens once the shell starts tearing the window down after `WM_ENDSESSION`. The two posts are now reported
+  separately: a rejected `WM_ENDSESSION` is a failure, an accepted one counts as delivered and the helper waits
+  for the shell instead of killing it.
+
+### Added
+
+- `--querytest <pid>` sends `WM_QUERYENDSESSION` through `SendMessageTimeout` and prints the window's answer,
+  so the session-end path can be checked without quitting the application.
+
+
 ## [0.1.19] - 2026-11-15
 
 ### Changed
