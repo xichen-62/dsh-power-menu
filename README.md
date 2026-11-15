@@ -1,16 +1,22 @@
 # dsh-power-menu
 
-给 DeepSeek Harness 桌面版加一个右上角电源按钮：点开只有 **关闭DSH** 和 **重启DSH** 两项，省得每次改完插件/配置还要去系统托盘里翻「退出」。
+给 DeepSeek Harness 桌面版加一个右上角电源按钮：点开只有 **关闭DSH** 和 **重启DSH** 两项，省得每次改完插件/配置还要去系统托盘里翻「退出」。退出走应用自己的关停流程，不是从外部硬杀；有任务在跑还会先拦一下。
 
-> Windows 专用 · 只支持 DSH Desktop · 纯本地 · 无外部依赖 · MIT
+> **仅 Windows**（macOS / Linux 用不了，原因见「兼容性」）· 只支持 DSH Desktop · 纯本地 · 除系统自带 PowerShell 外无外部依赖 · MIT
 >
 > ⭐ 如果这个小工具帮你省了点时间，欢迎点个 **Star** 支持一下，感谢～
 
 ![dsh-power-menu 菜单截图](docs/screenshot.png)
 
+有任务在跑时，点下去之前会先拦一下：
+
+![有任务时的确认卡片](docs/screenshot-confirm.png)
+
 ## 为什么做这个
 
 DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜单；而改插件、改配置之后又经常需要重启一次。这个插件把这两步搬到会话标题栏右上角：一个电源键，两项操作，点完就走。
+
+顺带把「退出」这件事做正了：不是从外面 taskkill，而是请应用自己走完关停流程，Cookie 和会话日志都能正常落盘。
 
 ## 功能
 
@@ -22,9 +28,11 @@ DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜�
 - **有任务才确认**：点之前先问一次 `/tasks`。有会话正在生成、有排队消息或有后台任务在跑时，弹出卡片列出会被打断的会话与任务，确认才动手；空闲时直接执行，不多问。
 - **键盘可用**：`↑` / `↓` / `Home` / `End` 在两项间移动，`Enter` / 空格执行，`Esc` 关闭，点菜单外部也能关。
 - **执行反馈**：点击后整页盖一层半透明遮罩，显示「正在关闭DSH…」/「正在重启DSH…」。
-- **纯本地**：没有外部依赖、没有遥测；接口只监听本机回环地址，并做同源校验。
+- **纯本地**：没有第三方依赖、没有遥测；接口只监听本机回环地址，并做同源校验。
 
 ## 安装
+
+> ⚠️ **只能装在 Windows 版的 DSH Desktop 上。** 非 Windows 系统里按钮能出现，但关闭和重启都执行不了——接口会直接返回 409。
 
 > **重要**：装完插件后，必须再运行一次 `enable.ps1`（或直接用下面的 `install.ps1`），把 `dsh-power-menu` 补进 profile 的 `dsh.profile.bundles`，然后重启 DSH。少了这一步，按钮会 404——这是 DSH 插件管理器只写 `dependencies`、不写 bundles 的已知行为，不是插件本身的问题。
 
@@ -112,7 +120,7 @@ New-Item -ItemType Junction `
 | 关闭DSH | 结束整个桌面应用，不重新启动 | 是 |
 | 重启DSH | 结束应用 → 等端口释放 → 重新拉起 | 否，窗口自动回来 |
 
-> **注意**：空闲时点击即执行；只要有会话正在生成、有排队消息或有后台任务在跑，就会先弹出确认卡片，把要被打断的会话、任务和已运行时长列出来，确认后才动手。无论哪种情况，两个动作都会中断正在进行的工作，请在点之前保存手头的事情。
+> **注意**：空闲时点击即执行；只要有会话正在生成、有排队消息或有后台任务在跑，就会先弹出确认卡片，把要被打断的会话、任务和已运行时长列出来，确认后才动手。确认之后，两个动作都会中断正在进行的工作，请在点之前保存手头的事情。
 
 ## 工作原理
 
@@ -164,14 +172,16 @@ GET  /api/dsh-power-menu/tasks
 
 ## 安全
 
-- 三个接口只接受回环地址（`127.0.0.1` / `::1`），校验 `Host` 必须是本机，拒绝 `sec-fetch-site: cross-site`，带 `Origin` 时必须与本机同源。
+- 四个接口只接受回环地址（`127.0.0.1` / `::1`），校验 `Host` 必须是本机，拒绝 `sec-fetch-site: cross-site`，带 `Origin` 时必须与本机同源。
+- 返回 409 有两种情况：当前不是桌面版（`dsh web`），或者上一次关停还没走完。两种都不会重复触发。
 - 没有鉴权令牌的第三方网页无法跨站触发关机/重启。
 - 只支持桌面版；`dsh web` 下接口返回 409，不会去杀别的进程。
 - 不收集任何数据，不联网，不写注册表；日志只写在本地 `%USERPROFILE%\.dsh\dsh-power-menu\`。
 
 ## 兼容性
 
-- **系统**：Windows 10 / 11。优雅退出这一段依赖 Windows 的窗口消息（`WM_ENDSESSION` / `WM_CLOSE`）和 `taskkill` 兜底；其他系统未实现。
+- **系统**：Windows 10 / 11。优雅退出这一段依赖 Windows 的窗口消息（`WM_ENDSESSION` / `WM_CLOSE`）和 `taskkill` 兜底。
+- **为什么没有 macOS / Linux 版**：不是「还没做」。DSH 在 Windows 上是通过主窗口的 `session-end` 事件触发退出链的，非 Windows 走的是 `powerMonitor.on('shutdown')`——那是系统级事件，外部插件没法模拟，也就没有「先请应用自己退」这条路可走。
 - **DSH**：在 **DSH Desktop 0.2.2-rc.3** 上实测通过（2026-11-15），关闭 2.9 秒、重启 9.6 秒，全程没有 `taskkill`。0.2.1 的旧行为（强杀主进程）也仍然可用，但会退回硬退出的路径。
 - **Node**：跟随 DSH 自带的 Node（22+），无需单独安装。
 
@@ -180,7 +190,7 @@ GET  /api/dsh-power-menu/tasks
 ```text
 dsh-power-menu/
 ├── lib/
-│   ├── index.js        Host 半：三个回环接口 + 交接调度
+│   ├── index.js        Host 半：四个回环接口 + 交接调度
 │   ├── client.js       浏览器半：window.__ModuleLoader__ bundle
 │   └── helper.cjs      分离的交接 helper
 ├── cordis.patch.yml    bundle 插入层
@@ -278,7 +288,9 @@ A small DSH Desktop plugin that adds a power button to the top-right of the sess
 - **关闭DSH** — quit the whole desktop app (no relaunch).
 - **重启DSH** — quit and relaunch the app, so the window comes back automatically.
 
-Windows only, DSH Desktop only. No telemetry, no external dependencies; the three HTTP routes are loopback-only and same-origin fenced.
+Both actions go through the app's own shutdown chain instead of a hard kill, and a confirmation card lists any running work before the transition.
+
+**Windows only.** It drives the Windows `WM_ENDSESSION` window message; on macOS/Linux the equivalent is a system-level `powerMonitor` event that an external plugin cannot simulate, so there is no port to be made here. DSH Desktop only. No telemetry, no third-party dependencies — it posts the window message through the bundled PowerShell. The four HTTP routes are loopback-only and same-origin fenced.
 
 Install from GitHub:
 
