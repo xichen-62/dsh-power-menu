@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.18] - 2026-11-15
+
+### Fixed
+
+- Orphan cleanup now counts only the processes that were actually alive when the pass started, so a pid that exited on its own is no longer reported as a failed kill. The old `ended 5/7` line read like two failures even when the teardown was clean.
+- Cleanup retries up to three times (300/500/500ms) and returns the remaining pids instead of only writing one log line.
+- After the snapshot pass a **residual sweep** enumerates every process started from the same executable path (`Win32_Process.ExecutablePath -ieq <exe>`) and ends the leftovers, excluding the helper itself. A snapshot cannot see children spawned after it was taken, and those are exactly the processes that make the next launch fail with `EACCES` on a session log or profile file.
+- Restart now waits for the Host to leave on its own before escalating (`HOST_EXIT_TIMEOUT_MS`, 250ms poll), then waits for the port, then sweeps, then lets the filesystem settle for 800–1500ms before relaunching.
+- A restart whose window check times out or finds a crash dialog no longer returns with the residue still in place: it ends the failed child, sweeps again, and retries (up to three attempts). The failure dialog now states that the residue was cleaned as far as possible.
+
+### Added
+
+- Helper commands `--processtest <exe>` (read-only listing of processes started from that executable) and `--sweeptest <exe>` (destructive; test only).
+
 ## [0.1.17] - 2026-10-21
 
 ### Changed
