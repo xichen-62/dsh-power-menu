@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.21] - 2026-11-15
+
+### Added
+
+- An idle-only confirmation gate for both destructive actions. `GET /api/dsh-power-menu/tasks` reports the
+  work a transition would interrupt, using the same snapshot the desktop build feeds its own quit prompt:
+  an agent counts as busy while `status === 'running'`, while its inbox still holds queued or steering
+  messages, or while it owns a `running` / `stopping` job. Live jobs without an owner are listed too.
+- The client asks that endpoint before every shutdown or restart. When something is running it shows a
+  dialog naming each session (logged title) with its state, the running jobs with their labels, progress
+  and elapsed time, and the number of queued messages; the click only proceeds after an explicit
+  "仍然关闭" / "仍然重启". With nothing running the button keeps its old one-click behavior.
+
+### Changed
+
+- The session badge only reads "生成中" while the agent is generating; the "排队中" variant and the
+  queued-message counter were dropped as noise. Queued work still counts as busy, it is just not itemized.
+
+### Fixed
+
+- An unowned background job no longer appears under every session row. `jobs.list(caller)` returns the
+  caller's jobs *and* every unowned one, so the collector now keeps only jobs whose `owner` is that
+  session and lists unowned jobs once, under their own row.
+- The elapsed clock inside the confirmation dialog now ticks every second instead of freezing at the
+  moment the dialog opened (`startedAt` still comes from the job registry, so it stays wall-clock accurate).
+- The `sessionEnding` branch in the desktop shell skips the built-in `quitConfirmation`, so a transition
+  used to interrupt running tasks without asking. The plugin now supplies that confirmation itself and can
+  name what is about to be lost instead of asking a bare yes/no.
+
 ## [0.1.20] - 2026-11-15
 
 ### Fixed
