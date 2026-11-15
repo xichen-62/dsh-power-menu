@@ -17,3 +17,6 @@ desktop.ini
 # local env / secrets
 .env
 .env.*
+
+# 发布说明草稿（gh release --notes-file 用，不进版本库）
+.release-notes-*.md
