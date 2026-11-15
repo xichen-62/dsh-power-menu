@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.19] - 2026-11-15
+
+### Changed
+
+- Shutdown and restart now ask the shell to quit through its own graceful path instead of killing it outright.
+  The packaged desktop shell keeps a hidden branch: once the window event `session-end` has fired, the close
+  handler stops preventing the default and `before-quit` skips the task confirmation and runs the full teardown
+  chain (`finishQuit` → `stopOperationReports` → `backend.close()` → Host shutdown → `app.quit()`).
+  On Windows that event is produced from `WM_ENDSESSION`. The helper now locates the shell's main window
+  (`Chrome_WidgetWin_1` owned by the main pid) and posts `WM_ENDSESSION` followed by `WM_CLOSE`, then waits up
+  to 15s for the shell to leave on its own. `taskkill /F` stays only as the fallback when no window is found or
+  the shell does not exit in time; the log records which path was taken.
+
+### Added
+
+- Helper command `--findwindow <pid>` — read-only; reports the main window handle the graceful path would use.
+
+
 ## [0.1.18] - 2026-11-15
 
 ### Fixed

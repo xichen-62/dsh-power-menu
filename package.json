@@ -1,6 +1,6 @@
 {
   "name": "dsh-power-menu",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "给 DSH 桌面版加一个右上角电源按钮。点开是 Windows 电源菜单风格的小卡片，只有「关闭DSH」和「重启DSH」：关闭结束整个应用，重启会自动把窗口拉回来。纯本地，只监听回环地址。",
   "type": "module",
   "main": "lib/index.js",
