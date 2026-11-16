@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.22] - 2026-11-16
+
+### Added
+
+- A 刷新页面 entry at the top of the power menu. The packaged build has no menu bar and Ctrl+R reloads
+  nothing useful, so a blank renderer or a stuck client plugin used to force a full restart that also
+  killed the host and every running session. A page reload only rebuilds the renderer.
+
+### Changed
+
+- A restart now replays the arguments the current instance was launched with. The helper used to spawn
+  the new process with an empty argv, so a `--user-data-dir=<home>` or a `--port` given at launch was
+  silently dropped and the new window could come up on the default profile.
+- Both transitions now drop inherited proxy variables before quitting and relaunching. A plugin that
+  routes traffic through a loopback relay writes `HTTP_PROXY=http://127.0.0.1:<port>` for the instance
+  that installed it; the relaunched instance inherits that value, gets a different relay port, and every
+  outbound request then aims at a dead port with no log line explaining why. Set
+  `DSH_POWER_MENU_KEEP_PROXY=1` to keep the inherited proxy settings (corporate proxy users).
+
+### Fixed
+
+- The residual sweep no longer ends a process that owns a main window. It enumerates by executable path
+  to catch plugin children the snapshot misses, but a second DSH the user started by hand runs the same
+  executable: it is now skipped and logged.
+
+### Notes
+
+- The idea for the proxy-variable cleanup and the relaunch-argument replay comes from pull requests by
+  TAO-ZICHUAN and DDDMUC, and the reload entry from a pull request by hzlm124. Those changes were written
+  against 0.1.17 and would conflict with the 0.1.18–0.1.21 rewrite, so they are reimplemented here on the
+  current structure instead of being merged; the pull requests themselves are left untouched.
 ## [0.1.21] - 2026-11-15
 
 ### Added

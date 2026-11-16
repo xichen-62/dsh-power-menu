@@ -1,6 +1,6 @@
 # dsh-power-menu
 
-给 DeepSeek Harness 桌面版加一个右上角电源按钮：点开只有 **关闭DSH** 和 **重启DSH** 两项，省得每次改完插件/配置还要去系统托盘里翻「退出」。退出走应用自己的关停流程，不是从外部硬杀；有任务在跑还会先拦一下。
+给 DeepSeek Harness 桌面版加一个右上角电源按钮：点开是 **刷新页面**、**关闭DSH**、**重启DSH** 三项，省得每次改完插件/配置还要去系统托盘里翻「退出」。退出走应用自己的关停流程，不是从外部硬杀；有任务在跑还会先拦一下。
 
 > **仅 Windows**（macOS / Linux 用不了，原因见「兼容性」）· 只支持 DSH Desktop · 纯本地 · 除系统自带 PowerShell 外无外部依赖 · MIT
 >
@@ -14,7 +14,7 @@
 
 ## 为什么做这个
 
-DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜单；而改插件、改配置之后又经常需要重启一次。这个插件把这两步搬到会话标题栏右上角：一个电源键，两项操作，点完就走。
+DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜单；而改插件、改配置之后又经常需要重启一次。这个插件把这几步搬到会话标题栏右上角：一个电源键，三项操作，点完就走。
 
 顺带把「退出」这件事做正了：不是从外面 taskkill，而是请应用自己走完关停流程，Cookie 和会话日志都能正常落盘。
 
@@ -22,12 +22,15 @@ DSH Desktop 关窗口只是收进托盘，真正退出或重启要走托盘菜�
 
 - **右上角电源按钮**：位于会话标题栏图标行最右侧，顺序为「布局 / 侧栏 / 电源」。
 - **空会话也显示**：欢迎页和对话内使用同一个挂载位置，透明无底色，不会破坏主题，也不会出现两个按钮。
-- **Windows 电源菜单风格**：白色圆角卡片、悬浮阴影、左侧线性图标 + 右侧文本，只有两项，不塞多余入口。
+- **Windows 电源菜单风格**：白色圆角卡片、悬浮阴影、左侧线性图标 + 右侧文本，只有三项，不塞多余入口。
+- **刷新页面**：只重建渲染进程。打包版没有菜单栏、`Ctrl+R` 也不管用，白屏或前端插件卡住时以前只能整个重启，连带 Host 和跑着的会话一起断；现在刷一下就回来。
 - **关闭DSH**：让整个桌面应用走它自己的退出链（`before-quit` → Host shutdown），Cookie / LocalStorage 正常落盘，不重新启动。
-- **重启DSH**：同样先优雅退出，等旧端口释放、按 exe 扫掉残留进程后再用原可执行文件拉起，窗口自动回来。
+- **重启DSH**：同样先优雅退出，等旧端口释放、扫掉残留进程后再用原可执行文件拉起，窗口自动回来；启动时带的参数（如 `--user-data-dir`）会原样带上。
 - **有任务才确认**：点之前先问一次 `/tasks`。有会话正在生成、有排队消息或有后台任务在跑时，弹出卡片列出会被打断的会话与任务，确认才动手；空闲时直接执行，不多问。
-- **键盘可用**：`↑` / `↓` / `Home` / `End` 在两项间移动，`Enter` / 空格执行，`Esc` 关闭，点菜单外部也能关。
+- **键盘可用**：`↑` / `↓` / `Home` / `End` 在菜单项间移动，`Enter` / 空格执行，`Esc` 关闭，点菜单外部也能关。
 - **执行反馈**：点击后整页盖一层半透明遮罩，显示「正在关闭DSH…」/「正在重启DSH…」。
+- **清扫不误伤**：结束残留时按可执行文件路径枚举，但会跳过带主窗口的进程——那多半是你自己另外开的一个 DSH。
+- **重启前清掉继承的代理**：某些插件会为当前实例写 `HTTP_PROXY=http://127.0.0.1:<端口>`，新实例拿到的是新端口，旧值只会把请求打到已经关掉的中继上。重启前会清掉这几个变量；真的要走公司代理，设 `DSH_POWER_MENU_KEEP_PROXY=1` 保留。
 - **纯本地**：没有第三方依赖、没有遥测；接口只监听本机回环地址，并做同源校验。
 
 ## 安装
@@ -120,7 +123,7 @@ New-Item -ItemType Junction `
 | 关闭DSH | 结束整个桌面应用，不重新启动 | 是 |
 | 重启DSH | 结束应用 → 等端口释放 → 重新拉起 | 否，窗口自动回来 |
 
-> **注意**：空闲时点击即执行；只要有会话正在生成、有排队消息或有后台任务在跑，就会先弹出确认卡片，把要被打断的会话、任务和已运行时长列出来，确认后才动手。确认之后，两个动作都会中断正在进行的工作，请在点之前保存手头的事情。
+> **注意**：空闲时点击即执行；只要有会话正在生成、有排队消息或有后台任务在跑，就会先弹出确认卡片，把要被打断的会话、任务和已运行时长列出来，确认后才动手。确认之后，关闭和重启都会中断正在进行的工作（刷新页面不会），请在点之前保存手头的事情。
 
 ## 工作原理
 
@@ -283,12 +286,13 @@ cmd /c rmdir "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-power-menu
 
 ## English
 
-A small DSH Desktop plugin that adds a power button to the top-right of the session header. It opens a Windows-style menu with exactly two actions:
+A small DSH Desktop plugin that adds a power button to the top-right of the session header. It opens a Windows-style menu with three actions:
 
+- **刷新页面** — rebuild the renderer only; the host, its sessions and running jobs survive.
 - **关闭DSH** — quit the whole desktop app (no relaunch).
 - **重启DSH** — quit and relaunch the app, so the window comes back automatically.
 
-Both actions go through the app's own shutdown chain instead of a hard kill, and a confirmation card lists any running work before the transition.
+Shutdown and restart go through the app's own shutdown chain instead of a hard kill, and a confirmation card lists any running work before the transition. A restart also replays the arguments the current instance was launched with and drops inherited proxy variables, so the new window does not aim traffic at a relay that has already exited.
 
 **Windows only.** It drives the Windows `WM_ENDSESSION` window message; on macOS/Linux the equivalent is a system-level `powerMonitor` event that an external plugin cannot simulate, so there is no port to be made here. DSH Desktop only. No telemetry, no third-party dependencies — it posts the window message through the bundled PowerShell. The four HTTP routes are loopback-only and same-origin fenced.
 
