@@ -23,7 +23,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Github -WritePath
 #      坚持用 github: spec：没有 git 时先下载便携版 git（约 38 MB）；
 #      -WritePath 才会把它写进用户 PATH（默认只对本次安装生效）
-#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -TgzPath .\dsh-power-menu-0.1.21.tgz
+#   powershell -ExecutionPolicy Bypass -File .\install.ps1 -TgzPath .\dsh-power-menu-0.1.22.tgz
 #      完全离线：手动指定本地 tgz
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1 -Sha256 <hash>
 #      手动指定安装包 SHA-256；默认会尝试 Release 的 SHA256SUMS.txt
@@ -41,7 +41,7 @@ param(
   [switch]$WritePath,
   [string]$TgzPath = '',
   [string]$Sha256 = '',
-  [string]$Version = '0.1.21'
+  [string]$Version = '0.1.22'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -271,6 +271,14 @@ if ($TgzPath) {
   } else {
     'github:xichen-62/dsh-power-menu'
   }
+}
+
+# 重装前先移除旧条目：pnpm 会把 Git 依赖解析到的 commit 钉在 pnpm-lock.yaml 里，
+# 不先 remove，再 add 同一个地址时会直接复用旧 commit——DSH 升级后插件「倒退」就是这么来的。
+try {
+  & $dshCli plugin --profile $Profile remove $pluginName 2>$null | Out-Null
+} catch {
+  # 没装过，或者 remove 失败：都不影响后面的安装
 }
 
 Write-Host "[$pluginName] 正在安装（$spec）…"

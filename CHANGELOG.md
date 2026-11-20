@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `install.ps1` removes the previous entry before adding the plugin again. pnpm keeps the resolved
+  commit of a Git dependency in `pnpm-lock.yaml` and reuses it on the next `add` of the same spec, so a
+  reinstall used to restore the old commit no matter how new the source was.
 - The residual sweep no longer ends a process that owns a main window. It enumerates by executable path
   to catch plugin children the snapshot misses, but a second DSH the user started by hand runs the same
   executable: it is now skipped and logged.
