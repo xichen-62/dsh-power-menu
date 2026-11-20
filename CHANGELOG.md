@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   TAO-ZICHUAN and DDDMUC, and the reload entry from a pull request by hzlm124. Those changes were written
   against 0.1.17 and would conflict with the 0.1.18–0.1.21 rewrite, so they are reimplemented here on the
   current structure instead of being merged; the pull requests themselves are left untouched.
+- The helper writes the plugin version it was loaded from on its first log line (`plugin=0.1.22`). A
+  profile managed by pnpm installs from `pnpm-lock.yaml`, and a Git dependency there pins a commit: if
+  that commit is older than the installed code, an update silently disappears after the next
+  `pnpm install`. The version in the log makes a rolled-back copy visible on the next click.
+
 ## [0.1.21] - 2026-11-15
 
 ### Added

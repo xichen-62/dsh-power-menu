@@ -263,6 +263,17 @@ cmd /c rmdir "$env:USERPROFILE\.dsh\profiles\desktop\node_modules\dsh-power-menu
 
   GitHub 慢的话，在前面加 `https://gh-proxy.com/` 走镜像；也可以把 tgz 下载到本机后用 `dsh plugin --profile desktop add file:<路径>` 安装。
 
+**更新 DSH 之后，插件的功能好像退回去了？**
+
+如果插件是用 `github:` 或裸的 git 地址装的，pnpm 会把解析到的 commit 写进 profile 的 `pnpm-lock.yaml`。
+之后 DSH 升级时跑一次 `pnpm install`，就按 lock 把插件还原成那个 commit——比如实际装的是 0.1.22、
+lock 里还钉着 0.1.17，还原完菜单里就少了「刷新页面」。两种办法：
+
+1. 在 **插件市场 → 已安装** 里对 `dsh-power-menu` 点一次「更新」，这一步走的是 `pnpm add`，会把 lock 抬到当前版本；
+2. 或者改用 `link:` 安装（方式 D），pnpm 不下载也不覆盖它，本地文件改完刷新页面就生效。
+
+helper 日志的第一行现在带 `plugin=<版本号>`，被换掉了能一眼看出来。
+
 ## 卸载
 
 - 插件管理器里移除 `dsh-power-menu`，或者从 profile 的 `dependencies` / `dsh.profile.bundles` 里删掉，再删掉 `node_modules` 里的链接。
