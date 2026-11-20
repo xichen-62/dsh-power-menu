@@ -185,7 +185,7 @@ GET  /api/dsh-power-menu/tasks
 
 - **系统**：Windows 10 / 11。优雅退出这一段依赖 Windows 的窗口消息（`WM_ENDSESSION` / `WM_CLOSE`）和 `taskkill` 兜底。
 - **为什么没有 macOS / Linux 版**：不是「还没做」。DSH 在 Windows 上是通过主窗口的 `session-end` 事件触发退出链的，非 Windows 走的是 `powerMonitor.on('shutdown')`——那是系统级事件，外部插件没法模拟，也就没有「先请应用自己退」这条路可走。
-- **DSH**：在 **DSH Desktop 0.2.2-rc.3**（2026-11-15 的最新版）上实测通过：关闭 2.9 秒、重启 9.6 秒，全程没有 `taskkill`。`engines.dsh` 声明的是 `>=0.2.0-rc.1`，0.2.x 用到的接口（挂载槽位、`/tasks` 依赖的三个服务）逐项比对过是一致的；但**只有 0.2.2-rc.3 是实测的**，更早的版本请自行验证——旧版桌面壳如果没有对应的窗口事件处理，关闭会退回强杀：不会留下残留（helper 会按可执行文件路径兜底清扫），但过程是硬的。
+- **DSH**：在 **DSH Desktop 0.2.2-rc.5**（2026-11-20 的最新版）上实测通过：关闭 2.9 秒、重启 11.2 秒，全程没有 `taskkill`。`engines.dsh` 声明的是 `>=0.2.0-rc.1`，0.2.x 用到的接口（挂载槽位、`/tasks` 依赖的三个服务）逐项比对过是一致的；但只有 rc.3 和 rc.5 是实测的，更早的版本请自行验证——旧版桌面壳如果没有对应的窗口事件处理，关闭会退回强杀：不会留下残留（helper 会按可执行文件路径兜底清扫），但过程是硬的。
 - **Node**：跟随 DSH 自带的 Node（22+），无需单独安装。
 
 ## 开发
@@ -293,8 +293,9 @@ helper 日志的第一行现在带 `plugin=<版本号>`，被换掉了能一眼�
 
 ## 致谢
 
-- 分离 helper 做进程交接、只结束主进程让 Host 优雅退出的思路，参考了 [dsh-desktop-restart](https://github.com/luoshuizhiwei/dsh-desktop-restart)（MIT）。本项目的实现是独立编写的。
-- 菜单样式参考 Windows 电源菜单；图标为内联 SVG，无第三方图标库。
+- [dsh-desktop-restart](https://github.com/luoshuizhiwei/dsh-desktop-restart)："用 helper 做进程交接、只结束主进程让 Host 自己退"这条路最早是在这个项目里看到的，MIT。实现是另写的，但方向是它先趟的。
+- [@TAO-ZICHUAN](https://github.com/TAO-ZICHUAN)、[@DDDMUC](https://github.com/DDDMUC)、[@hzlm124](https://github.com/hzlm124)：0.1.22 里的代理变量清理、清扫不误伤、刷新页面，想法分别来自他们提的 PR。那些 PR 是照 0.1.17 写的，跟后来的重写冲突，所以按现在的结构重做了一遍，PR 本身没动。谢谢三位。
+- 菜单样式照着 Windows 电源菜单做的；图标是内联 SVG，没有用第三方图标库。
 
 ---
 
