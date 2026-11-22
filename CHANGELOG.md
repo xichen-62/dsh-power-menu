@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.23] - 2026-11-22
+
+### Changed
+
+- Every route now asks the composition's `connection` service for a rejection first -- the same
+  `ctx.connection.requestRejection` gate the official host plugins open their handlers with. Its
+  Host/Origin fence and browser auth cookie cover what the hand-rolled loopback check could not: a
+  page in the user's own browser that reaches the loopback port is now answered by the same code path
+  DSH uses for its own routes. The desktop shell forwards renderer requests with the auth cookie
+  attached and no `Origin`, so in-app buttons keep working; a composition without a `connection`
+  service falls back to the old check.
+
+- A rejected transition shows why it was rejected (HTTP 401/403) instead of a bare status code.
 ## [0.1.22] - 2026-11-16
 
 ### Added

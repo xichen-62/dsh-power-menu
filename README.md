@@ -175,9 +175,10 @@ GET  /api/dsh-power-menu/tasks
 
 ## 安全
 
-- 四个接口只接受回环地址（`127.0.0.1` / `::1`），校验 `Host` 必须是本机，拒绝 `sec-fetch-site: cross-site`，带 `Origin` 时必须与本机同源。
+- 每个接口在进入自己的逻辑之前，先向 DSH 的 `connection` 服务要一次拒绝（`ctx.connection.requestRejection`）——这是官方 host 插件用的同一道栅栏：Host/Origin 校验挡住 DNS 重绑定和跨站调用，浏览器认证 cookie 挡住没登录的调用方。
+- 桌面壳转发渲染进程的请求时会带上认证 cookie 并去掉 `Origin`，所以在应用界面里点按钮照常通过；别的网页发起的 `POST` 会被 401/403 直接挡在业务逻辑之外。
+- 插件自己还留着一层回落：四个接口只接受回环地址（`127.0.0.1` / `::1`），校验 `Host` 必须是本机，拒绝 `sec-fetch-site: cross-site`，带 `Origin` 时必须与本机同源。没有 `connection` 服务的早期 DSH 版本只走这一层。
 - 返回 409 有两种情况：当前不是桌面版（`dsh web`），或者上一次关停还没走完。两种都不会重复触发。
-- 没有鉴权令牌的第三方网页无法跨站触发关机/重启。
 - 只支持桌面版；`dsh web` 下接口返回 409，不会去杀别的进程。
 - 不收集任何数据，不联网，不写注册表；日志只写在本地 `%USERPROFILE%\.dsh\dsh-power-menu\`。
 
